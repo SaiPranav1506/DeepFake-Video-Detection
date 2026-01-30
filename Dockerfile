@@ -1,5 +1,5 @@
 # Use Python 3.11 slim (bullseye) for better compatibility with ML libraries
-FROM python:3.11-slim-bullseye
+FROM python:3.12-slim-bullseye
 
 # Set working directory
 WORKDIR /app
