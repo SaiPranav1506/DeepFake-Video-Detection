@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Deepfake Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Chatbot widget (dashboard-style, public endpoint) */
+        .chat-launcher { position: fixed; right: 24px; bottom: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 999px; padding: 14px 18px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; }
+        .chat-launcher:hover { transform: translateY(-1px); }
+        .chat-panel { position: fixed; right: 24px; bottom: 88px; width: 340px; max-width: 90vw; background: #fff; border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,0.25); display: none; flex-direction: column; overflow: hidden; }
+        .chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .chat-body { padding: 12px; max-height: 360px; overflow-y: auto; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; }
+        .chat-msg { padding: 10px 12px; border-radius: 10px; max-width: 85%; font-size: 14px; line-height: 1.4; }
+        .chat-user { align-self: flex-end; background: #e0e7ff; color: #1e293b; }
+        .chat-bot { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; }
+        .chat-footer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e2e8f0; background: #fff; }
+        .chat-input { flex: 1; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .chat-send { background: #667eea; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+        @media (max-width: 600px) { .chat-panel { right: 12px; left: 12px; width: auto; } }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/space.css') }}">
+</head>
+<body class="space-ui">
+    <div id="space-scene" class="space-scene" aria-hidden="true"><canvas id="space-canvas"></canvas></div>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>🎥 Deepfake Detector</h1>
+                <p>Detect deepfakes with confidence</p>
+            </div>
+            
+            <div class="alert alert-error" id="error-alert"></div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="Enter your password">
+                </div>
+                
+                <button type="submit" id="login-btn">Log In</button>
+            </form>
+            
+            <div class="footer">
+                Don't have an account? <a href="/signup">Sign up here</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Public chatbot widget (dashboard-style) -->
+    <button id="chat-launcher" class="chat-launcher" type="button">💬 Chat</button>
+    <div id="chat-panel" class="chat-panel">
+        <div class="chat-header">
+            <span>AI Assistant</span>
+            <button id="chat-close" title="Close" style="background:none;border:none;color:#fff;font-weight:700;cursor:pointer;">×</button>
+        </div>
+        <div id="chat-body" class="chat-body"></div>
+        <div class="chat-footer">
+            <input id="chat-input" class="chat-input" type="text" placeholder="Ask about accuracy, best values, epochs..." />
+            <button id="chat-send" class="chat-send" type="button">Send</button>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('login-form');
+        const loginBtn = document.getElementById('login-btn');
+        const errorAlert = document.getElementById('error-alert');
+        
+        function validateLogin(email, password) {
+            const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+            if (!email || !emailRe.test(email)) return 'Please enter a valid email address.';
+            if (!password || password.length < 6) return 'Password must be at least 6 characters.';
+            return null;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorAlert.classList.remove('show');
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const v = validateLogin(email, password);
+            if (v) {
+                errorAlert.textContent = v; errorAlert.classList.add('show');
+                loginBtn.disabled = false; loginBtn.textContent = 'Log In'; return;
+            }
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                        return;
+                    }
+                    errorAlert.textContent = data.error;
+                    errorAlert.classList.add('show');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Log In';
+                }
+            } catch (error) {
+                errorAlert.textContent = 'An error occurred. Please try again.';
+                errorAlert.classList.add('show');
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Log In';
+            }
+        });
+
+        // Chatbot logic (public endpoint)
+        const chatLauncher = document.getElementById('chat-launcher');
+        const chatPanel = document.getElementById('chat-panel');
+        const chatClose = document.getElementById('chat-close');
+        const chatBody = document.getElementById('chat-body');
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+
+        function addChatMessage(text, role) {
+            const div = document.createElement('div');
+            div.className = `chat-msg ${role === 'user' ? 'chat-user' : 'chat-bot'}`;
+            div.textContent = text;
+            chatBody.appendChild(div);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        async function sendChat() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            addChatMessage(text, 'user');
+            chatInput.value = '';
+            try {
+                const resp = await fetch('/api/chat-public', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, context: { page: 'login' } })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    addChatMessage(data.reply, 'bot');
+                } else {
+                    addChatMessage(data.error || 'Error from assistant', 'bot');
+                }
+            } catch (e) {
+                addChatMessage('Network error: ' + e.message, 'bot');
+            }
+        }
+
+        chatLauncher.addEventListener('click', () => {
+            chatPanel.style.display = 'flex';
+            chatInput.focus();
+            if (!chatBody.dataset.booted) {
+                addChatMessage('Hi! Ask me about accuracy, best metrics, or how to improve results.', 'bot');
+                chatBody.dataset.booted = '1';
+            }
+        });
+        chatClose.addEventListener('click', () => chatPanel.style.display = 'none');
+        chatSend.addEventListener('click', sendChat);
+        chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+    </script>
+
+    <script defer src="{{ url_for('static', filename='js/space.js') }}"></script>
+</body>
+</html>

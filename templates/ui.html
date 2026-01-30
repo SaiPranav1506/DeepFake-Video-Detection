@@ -1,0 +1,624 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DeepfakeGuard - Detection</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Navbar */
+    .navbar {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .navbar-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 70px;
+    }
+
+    .navbar-brand {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .navbar-menu {
+      display: flex;
+      list-style: none;
+      gap: 30px;
+      align-items: center;
+    }
+
+    .navbar-menu a {
+      color: #e2e8f0;
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .navbar-menu a:hover {
+      color: #667eea;
+    }
+
+    .navbar-menu a::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s ease;
+    }
+
+    .navbar-menu a:hover::after {
+      width: 100%;
+    }
+
+    .navbar-menu .active {
+      color: #667eea;
+    }
+
+    body{font-family:Segoe UI,Arial;margin:0;padding:24px}
+    label{display:block;margin:8px 0}
+    button{padding:8px 12px;margin-right:8px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .hint{color:#666;font-size:12px;margin-top:6px}
+
+    .actions{margin-top:10px}
+
+    /* Keep a small readable card for errors/info */
+    .card{background:#f5f5f5;padding:12px;border-radius:6px;white-space:pre-wrap;max-width:920px}
+    .title{font-weight:600;margin-bottom:6px}
+
+
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      padding: 40px 20px;
+    }
+
+    .hero-content {
+      max-width: 800px;
+      animation: fadeInUp 0.8s ease;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hero h1 {
+      font-size: 64px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      color: #667eea;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: #cbd5e1;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .scroll-indicator {
+      margin-top: 60px;
+      animation: bounce 2s infinite;
+    }
+
+    .scroll-indicator svg {
+      width: 40px;
+      height: 40px;
+      stroke: #667eea;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    @keyframes bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(10px);
+      }
+    }
+
+    /* Detection Form Section */
+    .detection-section {
+      min-height: 100vh;
+      padding: 80px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(26, 31, 58, 0.8) 100%);
+    }
+
+    .detection-container {
+      max-width: 900px;
+      width: 100%;
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 60px;
+      border-radius: 16px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.15);
+    }
+
+    .detection-container h2 {
+      font-size: 36px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #e2e8f0;
+      text-align: center;
+    }
+
+    .detection-container > p {
+      text-align: center;
+      color: #a0aec0;
+      margin-bottom: 40px;
+      font-size: 16px;
+    }
+
+    .detection-container form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .detection-container label {
+      display: block;
+      font-size: 16px;
+      font-weight: 500;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .file-input-wrapper input[type="file"] {
+      padding: 12px 16px;
+      border: 2px solid rgba(102, 126, 234, 0.3);
+      border-radius: 8px;
+      background: rgba(30, 41, 59, 0.5);
+      color: #e2e8f0;
+      cursor: pointer;
+      font-size: 14px;
+      flex: 1;
+      min-width: 250px;
+      transition: all 0.3s ease;
+    }
+
+    .file-input-wrapper input[type="file"]:hover {
+      border-color: #667eea;
+      background: rgba(102, 126, 234, 0.1);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .detection-container button {
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .detection-container button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+    }
+
+    .detection-container button:active {
+      transform: translateY(0);
+    }
+
+    .button-group a button {
+      background: rgba(102, 126, 234, 0.2);
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+
+    .button-group a button:hover {
+      background: rgba(102, 126, 234, 0.3);
+      color: #fff;
+    }
+
+    .hint {
+      text-align: center;
+      color: #a0aec0;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 42px;
+      }
+
+      .hero p {
+        font-size: 16px;
+      }
+
+      .detection-container {
+        padding: 40px 20px;
+      }
+
+      .detection-container h2 {
+        font-size: 24px;
+      }
+
+      .file-input-wrapper {
+        flex-direction: column;
+      }
+
+      .file-input-wrapper input[type="file"] {
+        min-width: 100%;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      .button-group button,
+      .button-group a button {
+        width: 100%;
+      }
+    }
+
+    /* Information Section */
+    .info-section {
+      padding: 80px 24px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(26, 31, 58, 0.8) 100%);
+      border-top: 1px solid rgba(102, 126, 234, 0.2);
+    }
+
+    .info-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-size: 32px;
+      font-weight: 600;
+      margin: 50px 0 25px 0;
+      color: #e2e8f0;
+      border-left: 4px solid #667eea;
+      padding-left: 16px;
+    }
+
+    .section-title:first-of-type {
+      margin-top: 0;
+    }
+
+    .about-content {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 32px;
+      border-radius: 12px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      line-height: 1.8;
+      margin-bottom: 40px;
+      font-size: 16px;
+      color: #cbd5e1;
+    }
+
+    .about-content p {
+      margin-bottom: 16px;
+      text-align: justify;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+      margin: 30px 0 50px 0;
+    }
+
+    .feature-box {
+      background: rgba(30, 41, 59, 0.7);
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    .feature-box:hover {
+      border-color: #667eea;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.1);
+      transform: translateY(-4px);
+    }
+
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    .feature-box h3 {
+      margin-bottom: 12px;
+      color: #667eea;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .feature-box p {
+      font-size: 14px;
+      color: #a0aec0;
+      line-height: 1.6;
+    }
+
+    .images-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin: 40px 0 50px 0;
+    }
+
+    .image-card {
+      background: rgba(30, 41, 59, 0.7);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    .image-card:hover {
+      transform: translateY(-8px);
+      border-color: #667eea;
+      box-shadow: 0 20px 40px rgba(102, 126, 234, 0.2);
+    }
+
+    .image-placeholder {
+      width: 100%;
+      height: 240px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      text-align: center;
+      padding: 20px;
+      font-weight: 500;
+    }
+
+    .image-caption {
+      padding: 16px;
+      font-size: 14px;
+      text-align: center;
+      color: #a0aec0;
+      font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+      .info-section {
+        padding: 40px 20px;
+      }
+
+      .section-title {
+        font-size: 24px;
+      }
+
+      .features-grid,
+      .images-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .about-content {
+        padding: 20px;
+        font-size: 14px;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/space.css') }}">
+</head>
+<body class="space-ui">
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="{{ url_for('simple_ui') }}" class="navbar-brand">
+        🔍 DeepfakeGuard
+      </a>
+      <ul class="navbar-menu">
+        <li><a href="{{ url_for('simple_ui') }}" class="active">Home</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div id="space-scene" class="space-scene" aria-hidden="true"><canvas id="space-canvas"></canvas></div>
+
+  <!-- Hero Section -->
+  <div class="hero">
+    <div class="hero-content">
+      <h1>Deepfake Detection</h1>
+      <p>Advanced AI-powered detection system to identify synthetic and manipulated video content with high accuracy</p>
+      <div class="scroll-indicator">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 5v7m0 0v7m0-7L7 9m5 5l5-5"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Information Section -->
+  <div class="info-section">
+    <div class="info-container">
+      <!-- About Deepfakes -->
+      <h2 class="section-title">Understanding Deepfakes</h2>
+      <div class="about-content">
+        <p>
+          <strong>Deepfakes</strong> are synthetic media created using artificial intelligence and deep learning techniques to manipulate or generate realistic videos and images of people. They leverage advanced neural networks, particularly autoencoders and generative adversarial networks (GANs), to seamlessly blend facial features, expressions, and voices, making it nearly impossible to distinguish synthetic content from authentic footage. While deepfake technology has legitimate applications in entertainment, education, and creative industries, it poses significant risks including identity theft, defamation, misinformation, and fraud. Understanding how deepfakes work and developing robust detection methods are crucial for maintaining trust in digital media and protecting individuals from malicious manipulation in our increasingly digital world.
+        </p>
+      </div>
+
+      <!-- Detection Challenges -->
+      <h2 class="section-title">Detection Challenges</h2>
+      <div class="features-grid">
+        <div class="feature-box">
+          <div class="feature-icon">🎬</div>
+          <h3>Video Quality</h3>
+          <p>High-resolution deepfakes become harder to detect as compression artifacts diminish and quality improves.</p>
+        </div>
+        <div class="feature-box">
+          <div class="feature-icon">🧠</div>
+          <h3>AI Evolution</h3>
+          <p>Detection methods must continuously adapt as generative AI models become increasingly sophisticated.</p>
+        </div>
+        <div class="feature-box">
+          <div class="feature-icon">⚡</div>
+          <h3>Speed vs Accuracy</h3>
+          <p>Balancing real-time detection speed with high accuracy remains a fundamental technical challenge.</p>
+        </div>
+        <div class="feature-box">
+          <div class="feature-icon">📊</div>
+          <h3>Diverse Artifacts</h3>
+          <p>Different deepfake creation methods leave unique, subtle artifacts that require specialized detection.</p>
+        </div>
+      </div>
+
+      <!-- Visual Examples -->
+      <h2 class="section-title">Visual Examples of Deepfake Characteristics</h2>
+      <div class="images-grid">
+        <div class="image-card">
+          <div class="image-placeholder">
+            Digital Face Reconstruction (AI-Generated)
+          </div>
+          <div class="image-caption">Synthetic facial features with numerical overlays representing AI processing</div>
+        </div>
+        <div class="image-card">
+          <div class="image-placeholder">
+            Neural Network Analysis
+          </div>
+          <div class="image-caption">Digital visualization showing how neural networks analyze and manipulate facial data</div>
+        </div>
+        <div class="image-card">
+          <div class="image-placeholder">
+            Biometric Artifacts Detection
+          </div>
+          <div class="image-caption">Enhanced visualization of detection artifacts in synthesized facial features</div>
+        </div>
+        <div class="image-card">
+          <div class="image-placeholder">
+            AI-Generated Synthesis Process
+          </div>
+          <div class="image-caption">Conceptual representation of the deepfake creation and synthesis pipeline</div>
+        </div>
+      </div>
+
+      <!-- Our Solution -->
+      <h2 class="section-title">Our Solution</h2>
+      <div class="about-content">
+        <p>
+          <strong>DeepfakeGuard</strong> utilizes state-of-the-art deep learning models combined with advanced detection algorithms to identify synthetic and manipulated video content. Our system analyzes multiple aspects of video data including facial biometrics, temporal consistency, and frequency-domain artifacts. By leveraging ensemble methods and attention mechanisms, DeepfakeGuard achieves high detection accuracy while maintaining computational efficiency, making it practical for real-world applications in content verification and security.
+        </p>
+      </div>
+
+      <!-- Key Detection Methods -->
+      <h2 class="section-title">Key Detection Methods</h2>
+      <div class="features-grid">
+        <div class="feature-box">
+          <div class="feature-icon">👁️</div>
+          <h3>Facial Analysis</h3>
+          <p>Examines facial landmarks, eye movements, and biometric patterns for inconsistencies.</p>
+        </div>
+        <div class="feature-box">
+          <div class="feature-icon">📐</div>
+          <h3>Frequency Analysis</h3>
+          <p>Uses spectral analysis to detect compression and synthesis artifacts invisible to human eyes.</p>
+        </div>
+        <div class="feature-box">
+          <div class="feature-icon">🔄</div>
+          <h3>Temporal Coherence</h3>
+          <p>Analyzes frame sequences to identify unnatural transitions and temporal inconsistencies.</p>
+        </div>
+        <div class="feature-box">
+          <div class="feature-icon">🤖</div>
+          <h3>Ensemble Learning</h3>
+          <p>Combines multiple detection models for improved accuracy and robustness against new techniques.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detection Form Section -->
+  <div class="detection-section">
+    <div class="detection-container">
+      <h2>Analyze Your Videos</h2>
+      <p>Upload one or more video files to detect deepfakes and synthetic content</p>
+
+      <form action="{{ url_for('ui_predict') }}" method="post" enctype="multipart/form-data">
+        <label>Select Video Files</label>
+        <div class="file-input-wrapper">
+          <input type="file" name="files" accept="video/*" multiple required />
+        </div>
+
+        <div class="button-group">
+          <button type="submit">🔍 Analyze Videos</button>
+          <a href="{{ url_for('ui_results') }}" style="text-decoration:none">
+            <button type="button">📊 View Results</button>
+          </a>
+        </div>
+
+        <div class="hint">✓ Supports MP4, AVI, MOV, MKV and other common video formats<br>✓ Process multiple videos at once<br>✓ Results appear on a separate results page</div>
+      </form>
+    </div>
+  </div>
+
+  <script defer src="{{ url_for('static', filename='js/space.js') }}"></script>
+</body>
+</html>

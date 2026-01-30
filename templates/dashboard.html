@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DeepfakeGuard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 24px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .user-info {
+            font-size: 14px;
+        }
+        
+        .logout-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        .upload-section {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .upload-section h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s;
+            background: #f9f9f9;
+        }
+        
+        .upload-area:hover {
+            background: #f0f0f0;
+        }
+        
+        .upload-area.dragover {
+            background: #e0e7ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .uploads-section {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .uploads-section h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .uploads-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .upload-item {
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: box-shadow 0.3s;
+        }
+        
+        .upload-item:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .upload-info {
+            flex: 1;
+        }
+        
+        .upload-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .upload-meta {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .upload-status {
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 120px;
+        }
+        
+        .status-processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-fake {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-authentic {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .result-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 15px;
+            transition: background 0.3s;
+        }
+        
+        .result-btn:hover {
+            background: #764ba2;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+        
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/space.css') }}">
+</head>
+<body class="space-ui">
+    <div id="space-scene" class="space-scene" aria-hidden="true"><canvas id="space-canvas"></canvas></div>
+    <header>
+        <h1>🎥 DeepfakeGuard Dashboard</h1>
+        <div class="header-actions">
+            <div class="user-info">Welcome, <strong id="username-display">User</strong></div>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="alert alert-error" id="error-alert"></div>
+        <div class="alert alert-success" id="success-alert"></div>
+        
+        <div class="upload-section">
+            <h2>📤 Upload Video</h2>
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📹</div>
+                <div class="upload-text">Drag and drop your video here or click to select</div>
+                <div class="upload-hint">Supported: MP4, AVI, MOV, MKV, WebM (max 500MB)</div>
+            </div>
+            <input type="file" id="file-input" accept="video/*">
+            <div id="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div style="text-align: center; margin-top: 10px; color: #666;">Uploading and processing...</div>
+            </div>
+        </div>
+        
+        <div class="uploads-section">
+            <h2>📊 Your Uploads</h2>
+            <div id="uploads-list" class="uploads-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📁</div>
+                    <div>No uploads yet. Upload a video to get started!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot widget -->
+    <style>
+        .chat-launcher { position: fixed; right: 24px; bottom: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 999px; padding: 14px 18px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; }
+        .chat-launcher:hover { transform: translateY(-1px); }
+        .chat-panel { position: fixed; right: 24px; bottom: 88px; width: 340px; max-width: 90vw; background: #fff; border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,0.25); display: none; flex-direction: column; overflow: hidden; }
+        .chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .chat-body { padding: 12px; max-height: 360px; overflow-y: auto; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; }
+        .chat-msg { padding: 10px 12px; border-radius: 10px; max-width: 85%; font-size: 14px; line-height: 1.4; }
+        .chat-user { align-self: flex-end; background: #e0e7ff; color: #1e293b; }
+        .chat-bot { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; }
+        .chat-footer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e2e8f0; background: #fff; }
+        .chat-input { flex: 1; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .chat-send { background: #667eea; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+        @media (max-width: 600px) { .chat-panel { right: 12px; left: 12px; width: auto; } }
+    </style>
+    <button id="chat-launcher" class="chat-launcher">💬 Chat</button>
+    <div id="chat-panel" class="chat-panel">
+        <div class="chat-header">
+            <span>AI Assistant</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button id="chat-settings" title="Settings" style="background:none;border:none;color:#fff;font-weight:700;cursor:pointer;">⚙</button>
+                <button id="chat-close" style="background:none;border:none;color:#fff;font-weight:700;cursor:pointer;">×</button>
+            </div>
+        </div>
+        <div id="chat-body" class="chat-body"></div>
+        <div id="chat-settings-panel" style="display:none;padding:10px;border-top:1px solid #e2e8f0;background:#fff;">
+            <div style="margin-bottom:8px;font-weight:600;color:#334155;">Agent Alert Phone</div>
+            <input id="agent-phone-input" type="text" placeholder="e.g. +15551234567" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;" />
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <button id="save-agent-phone" class="chat-send" style="padding:8px 12px;">Save Number</button>
+                <span id="agent-phone-status" style="font-size:12px;color:#64748b;">Not configured</span>
+            </div>
+        </div>
+        <div class="chat-footer">
+            <input id="chat-input" class="chat-input" type="text" placeholder="Ask about uploads, results, models..." />
+            <button id="chat-send" class="chat-send">Send</button>
+        </div>
+    </div>
+    
+    <script>
+        const username = "{{ username }}";
+        document.getElementById('username-display').textContent = username || 'User';
+        
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadsList = document.getElementById('uploads-list');
+        const errorAlert = document.getElementById('error-alert');
+        const successAlert = document.getElementById('success-alert');
+        const progressContainer = document.getElementById('progress-container');
+        const progressFill = document.getElementById('progress-fill');
+        
+        // Upload area click handler
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect();
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Extra validation before upload
+        function validateFile(file) {
+            const allowed = ['mp4','avi','mov','mkv','webm'];
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            if (!allowed.includes(ext)) return {ok:false, msg:'Unsupported file type.'};
+            if (file.size > 500 * 1024 * 1024) return {ok:false, msg:'File too large (max 500MB).'};
+            return {ok:true};
+        }
+        
+        async function handleFileSelect() {
+            const file = fileInput.files[0];
+            if (!file) return;
+            // Validate file type and size
+            const v = validateFile(file);
+            if (!v.ok) { showError(v.msg); return; }
+            
+            await uploadFile(file);
+        }
+        
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            progressContainer.style.display = 'block';
+            progressFill.style.width = '10%';
+            errorAlert.classList.remove('show');
+            successAlert.classList.remove('show');
+            
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                progressFill.style.width = '100%';
+                
+                if (data.success) {
+                    showSuccess('Video uploaded and processed!');
+                    fileInput.value = '';
+                    loadUploads();
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        progressFill.style.width = '0%';
+                    }, 1000);
+                } else {
+                    showError(data.error || 'Upload failed');
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }
+            } catch (error) {
+                showError('Upload error: ' + error.message);
+                progressContainer.style.display = 'none';
+                progressFill.style.width = '0%';
+            }
+        }
+        
+        async function loadUploads() {
+            try {
+                const response = await fetch('/api/uploads');
+                const uploads = await response.json();
+                
+                if (uploads.length === 0) {
+                    uploadsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📁</div>
+                            <div>No uploads yet. Upload a video to get started!</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                uploadsList.innerHTML = uploads.map(upload => `
+                    <div class="upload-item">
+                        <div class="upload-info">
+                            <div class="upload-name">${escapeHtml(upload.filename)}</div>
+                            <div class="upload-meta">
+                                <span>📅 ${new Date(upload.uploaded_at).toLocaleDateString()}</span>
+                                <span>${upload.num_faces || 0} faces detected</span>
+                                ${upload.processed ? `<span>Confidence: ${(upload.confidence * 100).toFixed(1)}%</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="upload-status ${getStatusClass(upload)}">${getStatusText(upload)}</div>
+                        ${upload.processed ? `<button class="result-btn" onclick="viewResult(${upload.id})">View Result</button>` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading uploads:', error);
+            }
+        }
+        
+        function getStatusClass(upload) {
+            if (!upload.processed) return 'status-processing';
+            return upload.is_fake === 1 ? 'status-fake' : 'status-authentic';
+        }
+        
+        function getStatusText(upload) {
+            if (!upload.processed) return '⏳ Processing...';
+            return upload.is_fake === 1 ? '🚨 Likely Fake' : '✅ Likely Authentic';
+        }
+        
+        function viewResult(uploadId) {
+            window.location.href = `/result/${uploadId}`;
+        }
+        
+        function showError(msg) {
+            errorAlert.textContent = msg;
+            errorAlert.classList.add('show');
+        }
+        
+        function showSuccess(msg) {
+            successAlert.textContent = msg;
+            successAlert.classList.add('show');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Load uploads on page load
+        loadUploads();
+        
+        // Refresh every 5 seconds
+        setInterval(loadUploads, 5000);
+
+        // Chatbot logic
+        const chatLauncher = document.getElementById('chat-launcher');
+        const chatPanel = document.getElementById('chat-panel');
+        const chatClose = document.getElementById('chat-close');
+        const chatSettingsBtn = document.getElementById('chat-settings');
+        const chatSettingsPanel = document.getElementById('chat-settings-panel');
+        const agentPhoneInput = document.getElementById('agent-phone-input');
+        const saveAgentPhoneBtn = document.getElementById('save-agent-phone');
+        const agentPhoneStatus = document.getElementById('agent-phone-status');
+        const chatBody = document.getElementById('chat-body');
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+
+        function addChatMessage(text, role) {
+            const div = document.createElement('div');
+            div.className = `chat-msg ${role === 'user' ? 'chat-user' : 'chat-bot'}`;
+            div.textContent = text;
+            chatBody.appendChild(div);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        async function sendChat() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            addChatMessage(text, 'user');
+            chatInput.value = '';
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    addChatMessage(data.reply, 'bot');
+                } else {
+                    addChatMessage(data.error || 'Error from assistant', 'bot');
+                }
+            } catch (e) {
+                addChatMessage('Network error: ' + e.message, 'bot');
+            }
+        }
+
+        chatLauncher.addEventListener('click', () => {
+            chatPanel.style.display = 'flex';
+            chatInput.focus();
+            if (!chatBody.dataset.booted) {
+                addChatMessage('Hi! I can guide uploads, model loading, and reading results. Ask me anything.', 'bot');
+                chatBody.dataset.booted = '1';
+            }
+        });
+        chatClose.addEventListener('click', () => chatPanel.style.display = 'none');
+        chatSend.addEventListener('click', sendChat);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChat();
+        });
+
+        // Settings toggle
+        chatSettingsBtn.addEventListener('click', async () => {
+            const visible = chatSettingsPanel.style.display === 'block';
+            chatSettingsPanel.style.display = visible ? 'none' : 'block';
+            if (!visible) {
+                try {
+                    const resp2 = await fetch('/api/agent-config');
+                    const data2 = await resp2.json();
+                    if (data2.success && data2.configured) {
+                        agentPhoneStatus.textContent = `Configured (${data2.redacted_phone || '***'})`;
+                    } else {
+                        agentPhoneStatus.textContent = 'Not configured';
+                    }
+                } catch (e) {
+                    agentPhoneStatus.textContent = 'Status unavailable';
+                }
+            }
+        });
+
+        // Save agent phone
+        saveAgentPhoneBtn.addEventListener('click', async () => {
+            const phone = agentPhoneInput.value.trim();
+            if (!phone) { addChatMessage('Please enter a phone number (digits with optional +).', 'bot'); return; }
+            try {
+                const resp = await fetch('/api/agent-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notification_phone: phone })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    agentPhoneStatus.textContent = 'Configured (***' + phone.slice(-4) + ')';
+                    agentPhoneInput.value = '';
+                    addChatMessage('Phone number saved. CRITICAL deepfake alerts will be logged for notification.', 'bot');
+                } else {
+                    addChatMessage(data.error || 'Failed to save number', 'bot');
+                }
+            } catch (e) {
+                addChatMessage('Network error while saving number: ' + e.message, 'bot');
+            }
+        });
+    </script>
+    <script defer src="{{ url_for('static', filename='js/space.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DeepfakeGuard - Results</title>
+  <style>
+    body{font-family:Segoe UI,Arial;margin:24px}
+    a{color:inherit}
+    .btn{padding:10px 14px;border-radius:10px;border:1px solid rgba(0,0,0,0.15);background:#fff;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;font-weight:700}
+    .hint{color:#334155;font-size:12px;margin-top:6px}
+    .wrap{max-width:980px;margin:0 auto;background:#fff;padding:18px;border-radius:16px;border:1px solid rgba(15,23,42,0.12)}
+    .panel{background:#fff;padding:14px;border-radius:12px;white-space:pre-wrap;border:1px solid rgba(15,23,42,0.12)}
+    .title{font-weight:800;margin:0 0 12px 0}
+
+    .result-body{margin:0;white-space:pre-wrap;line-height:1.55;color:#0f172a;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .result-body.typing::after{content:"▍";margin-left:2px;color:rgba(34,211,238,0.95);animation:blink 1s steps(1,end) infinite}
+    @keyframes blink{50%{opacity:0}}
+
+    /* Override space theme muted colors for this report UI */
+    body.space-ui .wrap{background:#fff !important;border:1px solid rgba(15,23,42,0.12) !important}
+    body.space-ui .wrap .hint{color:#334155 !important}
+    body.space-ui .wrap .title,
+    body.space-ui .wrap h3{color:#0f172a !important}
+    body.space-ui .wrap .panel{background:#fff !important;border:1px solid rgba(15,23,42,0.12) !important}
+    body.space-ui .wrap .result-body{color:#0f172a !important}
+
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/space.css') }}">
+</head>
+<body class="space-ui">
+  <div id="space-scene" class="space-scene" aria-hidden="true"><canvas id="space-canvas"></canvas></div>
+
+  <div class="wrap">
+    <h2 class="title">Results</h2>
+    <div style="margin-top:10px" class="hint">Detection output (confidence, faces, probabilities) + a simple-English justification.</div>
+
+    <h3 style="margin:14px 0 8px 0">Detection Output</h3>
+    <div class="panel">
+      <pre id="detection-out" class="result-body" aria-live="polite">{% if error %}Error: {{ error }}
+{% endif %}{% if results and results|length > 0 %}{% for item in results %}{% set r = item.result %}File: {{ item.original_filename or item.filename or 'Unknown' }}
+Prediction: {{ r.prediction or r.verdict_yes_no or 'Unknown' }}
+Confidence: {{ ((r.confidence or 0.0) * 100) | round(2) }}%
+Prob Fake: {{ ((r.prob_fake or 0.0) * 100) | round(2) }}%
+Prob Real: {{ ((r.prob_real or 0.0) * 100) | round(2) }}%
+Threshold Used: {{ r.threshold if r.threshold is not none else 'N/A' }}
+Abstained: {{ 'Yes' if r.abstained else 'No' }}
+Model Type: {{ r.model_type or 'N/A' }}
+Checkpoint: {{ r.checkpoint_path or 'N/A' }}
+Faces Detected: {{ (r.num_faces or 0) }}
+{% if r.description %}Notes: {{ r.description }}
+{% endif %}{% if r.enhanced_agent %}Enhanced Agent: {{ r.enhanced_agent.alert_level or '' }} (is_fake={{ r.enhanced_agent.is_fake }}, confidence={{ ((r.enhanced_agent.confidence or 0.0) * 100) | round(2) }}%)
+{% endif %}{% if loop.index != results|length %}
+---
+{% endif %}{% endfor %}{% else %}No results yet. Run an analysis first.{% endif %}</pre>
+    </div>
+
+    <h3 style="margin:14px 0 8px 0">Detailed Report</h3>
+    <div class="panel">
+      <pre id="justification-out" class="result-body" aria-live="polite">{% if results and results|length > 0 %}{% for item in results %}{% set r = item.result %}File: {{ item.original_filename or item.filename or 'Unknown' }}
+{{ r.justification or 'No justification available.' }}
+{% if loop.index != results|length %}
+---
+{% endif %}{% endfor %}{% else %}No justification yet. Run an analysis first.{% endif %}</pre>
+    </div>
+  </div>
+
+  <script>
+    function prefersReducedMotion() {
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    async function typeInto(el, fullText, msPerChar) {
+      return new Promise((resolve) => {
+        let i = 0;
+        let done = false;
+
+        function finish() {
+          if (done) return;
+          done = true;
+          el.textContent = fullText;
+          el.classList.remove('typing');
+          resolve();
+        }
+
+        el.classList.add('typing');
+        el.textContent = '';
+
+        // Click-to-skip typing for convenience.
+        el.addEventListener('click', finish, { once: true });
+
+        function step() {
+          if (done) return;
+          if (i >= fullText.length) return finish();
+          el.textContent += fullText[i++];
+          window.setTimeout(step, msPerChar);
+        }
+
+        step();
+      });
+    }
+
+    const detectionOut = document.getElementById('detection-out');
+    const justificationOut = document.getElementById('justification-out');
+
+    // Dynamic typing for detection results on page load
+    (async () => {
+      if (!detectionOut) return;
+      if (prefersReducedMotion()) return;
+      const full = (detectionOut.textContent || '').toString();
+      if (!full.trim()) return;
+      await typeInto(detectionOut, full, 4);
+    })();
+
+    // Dynamic typing for justification on page load
+    (async () => {
+      if (!justificationOut) return;
+      if (prefersReducedMotion()) return;
+      const full = (justificationOut.textContent || '').toString();
+      if (!full.trim()) return;
+      await typeInto(justificationOut, full, 4);
+    })();
+  </script>
+
+  <script defer src="{{ url_for('static', filename='js/space.js') }}"></script>
+</body>
+</html>

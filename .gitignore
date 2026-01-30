@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+.venv*/
+
+# Data (keep large datasets out of git)
+data/raw/
+data/prepared/
+data/processed/
+
+# Uploads / generated artifacts
+uploads/
+logs/
+evaluation_logs/
+selected_checkpoints/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.zip
+*.tar
+*.tar.gz
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Kaggle credentials (if you store it in-repo)
+.kaggle/

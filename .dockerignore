@@ -1,0 +1,108 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.venv-1/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv
+.venv-1
+venv
+ENV
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+DOCUMENTATION_INDEX.md
+QUICK_START.md
+README.md
+*.txt
+!requirements.txt
+!runtime.txt
+
+# Development files
+test_*.py
+*_test.py
+validate_*.py
+print_metrics.py
+hyperparameter_sweep.py
+download_datasets.py
+tune_with_outside_videos.py
+
+# Training scripts
+train_*.py
+!train_pretrained.py
+
+# Backup files
+backup_*/
+selected_checkpoints/
+resumed_training/
+
+# Logs
+logs/
+evaluation_logs/
+*.log
+
+# Data
+data/
+uploads/
+-p/
+
+# Batch/Shell scripts
+*.bat
+*.ps1
+*.sh
+
+# CSV files
+*.csv
+
+# Checkpoints (keep only essential ones in production)
+checkpoint_epoch_*.pt
+rnn_dummy_checkpoint.pt
+
+# App alternatives
+app_new.py
+
+# Misc
+.env
+uploads.json
+users.json
+hpo_results.csv
+evaluation_summary.csv
+training_metrics_improved.csv
+preds_epoch_6.csv
