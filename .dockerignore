@@ -1,52 +1,64 @@
-# Python
+# -------------------------
+# 🐍 Python build artifacts
+# -------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
-venv/
-.venv/
-.venv-1/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
+*.egg-info/
+*.egg
+*.pyo
+*.pyd
+*.pdb
+.installed.cfg
 .eggs/
+build/
+dist/
+develop-eggs/
+downloads/
 lib/
 lib64/
 parts/
 sdist/
 var/
 wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual environments
-.venv
-.venv-1
-venv
-ENV
+# -------------------------
+# 🧠 Virtual environments
+# -------------------------
+env/
+venv/
+.venv/
+.venv-1/
+ENV/
 
-# IDE
+# -------------------------
+# 🧰 IDE / Editor files
+# -------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.code-workspace
 
-# OS
+# -------------------------
+# 💻 Operating system files
+# -------------------------
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Git
-.git
+# -------------------------
+# 🧾 Git
+# -------------------------
+.git/
 .gitignore
 
-# Documentation
+# -------------------------
+# 📄 Documentation (keep essential ones)
+# -------------------------
 *.md
 DOCUMENTATION_INDEX.md
 QUICK_START.md
@@ -55,7 +67,9 @@ README.md
 !requirements.txt
 !runtime.txt
 
-# Development files
+# -------------------------
+# 🧪 Development & test scripts
+# -------------------------
 test_*.py
 *_test.py
 validate_*.py
@@ -63,46 +77,73 @@ print_metrics.py
 hyperparameter_sweep.py
 download_datasets.py
 tune_with_outside_videos.py
-
-# Training scripts
 train_*.py
 !train_pretrained.py
 
-# Backup files
-backup_*/
+# -------------------------
+# 💾 Data, Checkpoints, and Large Files
+# -------------------------
+data/
+datasets/
+uploads/
+uploads.json
+-p/
+*.csv
+*.mp4
+*.avi
+*.mkv
+*.zip
+*.tar
+*.gz
+*.h5
+*.onnx
+*.pt
+*.pth
+
+# Exclude unnecessary model or training artifacts
+checkpoint_epoch_*.pt
+rnn_dummy_checkpoint.pt
 selected_checkpoints/
 resumed_training/
+checkpoints/
+models/
 
-# Logs
+# -------------------------
+# 🧩 Logs & cache
+# -------------------------
 logs/
 evaluation_logs/
 *.log
+__cache__/
+tmp/
+temp/
 
-# Data
-data/
-uploads/
--p/
-
-# Batch/Shell scripts
-*.bat
-*.ps1
-*.sh
-
-# CSV files
-*.csv
-
-# Checkpoints (keep only essential ones in production)
-checkpoint_epoch_*.pt
-rnn_dummy_checkpoint.pt
-
-# App alternatives
-app_new.py
-
-# Misc
+# -------------------------
+# ⚙️ Config & Secrets
+# -------------------------
 .env
-uploads.json
 users.json
 hpo_results.csv
 evaluation_summary.csv
 training_metrics_improved.csv
 preds_epoch_6.csv
+
+# -------------------------
+# ⚡ Batch/Shell scripts
+# -------------------------
+*.bat
+*.ps1
+*.sh
+
+# -------------------------
+# 🧱 App variants / experiments
+# -------------------------
+app_new.py
+
+# -------------------------
+# ⚙️ CI/CD & Deployment helpers
+# -------------------------
+Dockerfile
+railway.json
+render.yaml
+docker-compose.yml
