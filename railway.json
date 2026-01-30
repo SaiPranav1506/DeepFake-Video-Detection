@@ -1,0 +1,18 @@
+{
+  "services": [
+    {
+      "name": "web",
+      "start": "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300",
+      "build": {
+        "builder": "Dockerfile"
+      },
+      "healthCheckPath": "/health",
+      "env": {
+        "FLASK_SECRET": "REPLACE_ME",
+        "NO_AUTOLOAD": "true",
+        "DEBUG": "false",
+        "PORT": "8080"
+      }
+    }
+  ]
+}
