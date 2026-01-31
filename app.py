@@ -76,6 +76,7 @@ CHECKPOINT_PATH = None
 MODEL_META = {}
 LAST_LOAD_STATS = {}
 ENHANCED_AGENT = EnhancedDecisionAgent() if EnhancedDecisionAgent is not None else None
+AUTOLOAD_ATTEMPTED = False
 
 _MTCNN = None
 
@@ -316,6 +317,119 @@ def _pick_best_checkpoint_for_autoload() -> tuple[str, str] | None:
         return str(checkpoint_rnn), 'cnn_lstm'
 
     return None
+
+
+def _resolve_checkpoint_path(p: str) -> Path:
+    try:
+        path = Path(p)
+        if not path.is_absolute():
+            base = Path(__file__).resolve().parent
+            path = (base / path).resolve()
+        return path
+    except Exception:
+        return Path(p)
+
+
+def _download_checkpoint(url: str, dest_path: Path) -> bool:
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        if dest_path.exists() and dest_path.stat().st_size > 0:
+            return True
+
+        tmp_path = dest_path.with_suffix(dest_path.suffix + '.tmp')
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+
+        timeout = int(os.environ.get('MODEL_DOWNLOAD_TIMEOUT', '120'))
+        with requests.get(url, stream=True, timeout=timeout) as resp:
+            resp.raise_for_status()
+            with open(tmp_path, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+
+        tmp_path.replace(dest_path)
+        return dest_path.exists() and dest_path.stat().st_size > 0
+    except Exception as e:
+        print(f"⚠️ Failed to download checkpoint from {url}: {e}")
+        return False
+
+
+def _build_autoload_candidates() -> list[tuple[str, str]]:
+    candidates: list[tuple[str, str]] = []
+
+    env_path = os.environ.get('MODEL_PATH') or os.environ.get('CHECKPOINT_PATH')
+    env_url = os.environ.get('MODEL_URL') or os.environ.get('CHECKPOINT_URL')
+    env_type = os.environ.get('MODEL_TYPE') or os.environ.get('CHECKPOINT_TYPE') or 'pretrained'
+
+    if env_url:
+        default_name = os.environ.get('MODEL_FILENAME') or 'checkpoint_best.pt'
+        target = _resolve_checkpoint_path(env_path or os.path.join('checkpoints', default_name))
+        if _download_checkpoint(env_url, target):
+            candidates.append((str(target), str(env_type)))
+
+    if env_path:
+        target = _resolve_checkpoint_path(env_path)
+        if target.exists():
+            candidates.append((str(target), str(env_type)))
+        else:
+            print(f"⚠️ MODEL_PATH does not exist: {target}")
+
+    picked = _pick_best_checkpoint_for_autoload()
+    if picked:
+        candidates.append((str(picked[0]), str(picked[1])))
+
+    # If the top pick fails (e.g., incompatible checkpoint), try other local candidates.
+    try:
+        for ckpt in Path('checkpoints').glob('pretrained*/checkpoint_best*.pt'):
+            candidates.append((str(ckpt), 'pretrained'))
+    except Exception:
+        pass
+    try:
+        for ckpt in Path('checkpoints').glob('ensemble*/checkpoint_best.pt'):
+            candidates.append((str(ckpt), 'ensemble_pretrained'))
+    except Exception:
+        pass
+
+    return candidates
+
+
+def _attempt_autoload(no_autoload: bool = False) -> None:
+    global AUTOLOAD_ATTEMPTED, MODEL_META
+    if AUTOLOAD_ATTEMPTED or bool(no_autoload):
+        return
+    AUTOLOAD_ATTEMPTED = True
+
+    candidates = _build_autoload_candidates()
+    seen = set()
+    loaded = False
+    for ckpt_path, model_type in candidates:
+        key = (ckpt_path, model_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        if model_type == 'ensemble_pretrained':
+            # Default backbones can be overridden via ENSEMBLE_BACKBONES env var.
+            MODEL_META = {
+                'backbones': [
+                    x.strip() for x in str(os.environ.get('ENSEMBLE_BACKBONES', 'efficientnet_b0,resnet50')).split(',')
+                    if x.strip()
+                ]
+            }
+        else:
+            MODEL_META = {}
+        ok = load_model(str(ckpt_path), str(model_type))
+        if ok:
+            print(f"✅ Auto-loaded checkpoint: {ckpt_path} ({model_type})")
+            loaded = True
+            break
+        print(f"⚠️ Auto-load failed, trying next: {ckpt_path} ({model_type})")
+
+    if not loaded:
+        print("⚠️ No compatible checkpoint auto-loaded. Please load a model manually.")
 
 
 def _latest_eval_summary() -> dict | None:
@@ -2774,49 +2888,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Auto-load a checkpoint on startup (prefer DFDC ensemble runs when available)
-    if not bool(args.no_autoload):
-        picked = _pick_best_checkpoint_for_autoload()
-        candidates: list[tuple[str, str]] = []
-        if picked:
-            candidates.append((str(picked[0]), str(picked[1])))
-        # If the top pick fails (e.g., incompatible checkpoint), try other local candidates.
-        try:
-            for ckpt in Path('checkpoints').glob('pretrained*/checkpoint_best*.pt'):
-                candidates.append((str(ckpt), 'pretrained'))
-        except Exception:
-            pass
-        try:
-            for ckpt in Path('checkpoints').glob('ensemble*/checkpoint_best.pt'):
-                candidates.append((str(ckpt), 'ensemble_pretrained'))
-        except Exception:
-            pass
-
-        seen = set()
-        loaded = False
-        for ckpt_path, model_type in candidates:
-            key = (ckpt_path, model_type)
-            if key in seen:
-                continue
-            seen.add(key)
-            if model_type == 'ensemble_pretrained':
-                # Default backbones can be overridden via ENSEMBLE_BACKBONES env var.
-                MODEL_META = {
-                    'backbones': [
-                        x.strip() for x in str(os.environ.get('ENSEMBLE_BACKBONES', 'efficientnet_b0,resnet50')).split(',')
-                        if x.strip()
-                    ]
-                }
-            else:
-                MODEL_META = {}
-            ok = load_model(str(ckpt_path), str(model_type))
-            if ok:
-                print(f"✅ Auto-loaded checkpoint: {ckpt_path} ({model_type})")
-                loaded = True
-                break
-            print(f"⚠️ Auto-load failed, trying next: {ckpt_path} ({model_type})")
-
-        if not loaded:
-            print("⚠️ No compatible checkpoint auto-loaded. Please load a model manually.")
+    _attempt_autoload(no_autoload=bool(args.no_autoload))
 
     print(f"Starting server on http://{args.host}:{args.port} (debug={bool(args.debug)})")
     app.run(host=str(args.host), port=int(args.port), debug=bool(args.debug))
+
+else:
+    # WSGI/production import path (e.g., Render, Gunicorn)
+    _attempt_autoload(
+        no_autoload=str(os.environ.get('NO_AUTOLOAD', '')).strip().lower() in ('1', 'true', 'yes', 'y')
+    )
