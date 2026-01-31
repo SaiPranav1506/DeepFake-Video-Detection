@@ -2270,6 +2270,11 @@ def simple_ui():
     return render_template('ui.html')
 
 
+@app.route('/health')
+def health():
+    """Health check endpoint for platform deployers (fast, no model load)."""
+    return 'ok', 200
+
 @app.route('/about')
 def about():
     # About page with deepfake information
