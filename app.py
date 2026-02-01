@@ -1,4 +1,17 @@
 import os
+
+# Render/Gunicorn can intermittently crash (exit 139) when native libs over-thread
+# on low-memory containers. Keep thread counts conservative for stability.
+os.environ.setdefault('OMP_NUM_THREADS', os.environ.get('OMP_NUM_THREADS', '1'))
+os.environ.setdefault('MKL_NUM_THREADS', os.environ.get('MKL_NUM_THREADS', '1'))
+os.environ.setdefault('OPENBLAS_NUM_THREADS', os.environ.get('OPENBLAS_NUM_THREADS', '1'))
+os.environ.setdefault('NUMEXPR_NUM_THREADS', os.environ.get('NUMEXPR_NUM_THREADS', '1'))
+
+try:
+    import faulthandler
+    faulthandler.enable()
+except Exception:
+    pass
 import sys
 import csv
 import json
@@ -21,6 +34,17 @@ try:
     import cv2
 except ImportError:
     cv2 = None
+
+if cv2 is not None:
+    # Reduce OpenCV internal threading; improves stability on some deployments.
+    try:
+        cv2.setNumThreads(0)
+    except Exception:
+        pass
+    try:
+        cv2.ocl.setUseOpenCL(False)
+    except Exception:
+        pass
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -72,6 +96,16 @@ def _no_cache_headers(resp):
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Torch thread limits (helps avoid over-parallelization + crashes under Gunicorn).
+try:
+    torch.set_num_threads(int(os.environ.get('TORCH_NUM_THREADS', '1')))
+except Exception:
+    pass
+try:
+    torch.set_num_interop_threads(int(os.environ.get('TORCH_NUM_INTEROP_THREADS', '1')))
+except Exception:
+    pass
 MODEL = None
 MODEL_TYPE = None
 CHECKPOINT_PATH = None
