@@ -1,0 +1,2 @@
+# Track the pinned model checkpoint with Git LFS (recommended for GitHub)
+checkpoints/pretrained_dfdc200_20260125/checkpoint_best_efficientnet_b0.pt filter=lfs diff=lfs merge=lfs -text

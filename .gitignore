@@ -17,7 +17,12 @@ uploads/
 logs/
 evaluation_logs/
 selected_checkpoints/
-checkpoints/
+# Keep checkpoints out of git by default, but allow one pinned checkpoint to be tracked.
+checkpoints/**
+!checkpoints/pretrained_dfdc200_20260125/
+!checkpoints/pretrained_dfdc200_20260125/checkpoint_best_efficientnet_b0.pt
+
+# Model weights (generally too large for git); exceptions can be added above.
 *.pt
 *.pth
 *.onnx
