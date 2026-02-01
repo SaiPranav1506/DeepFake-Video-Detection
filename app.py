@@ -2492,9 +2492,9 @@ def api_signup():
 
 @app.route('/ui')
 def simple_ui():
-    # Keep a single canonical UI entry point.
-    # /ui is retained for compatibility but immediately redirects to /results.
-    return redirect(url_for('results'))
+    # Main upload UI (kept for the original frontend structure).
+    # The upload form submits to /results (POST) so users land on the results page.
+    return render_template('ui.html')
 
 
 @app.route('/health')
