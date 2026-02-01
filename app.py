@@ -2397,11 +2397,11 @@ def about():
 
 @app.route('/ui/predict', methods=['POST'])
 def ui_predict():
-    """Form-based UI flow: upload on one page (/ui) and render results on another (/ui/results)."""
+    """Form-based UI flow: upload on one page (/ui) and render results on another (/results)."""
     if MODEL is None:
         session['ui_last_error'] = 'Model not loaded'
         session['ui_last_results'] = []
-        return redirect(url_for('ui_results'))
+        return redirect(url_for('results'))
 
     # Accept multiple files from the form.
     files = request.files.getlist('files')
@@ -2413,7 +2413,7 @@ def ui_predict():
     if not files or all((f is None or not getattr(f, 'filename', '')) for f in files):
         session['ui_last_error'] = 'No file selected'
         session['ui_last_results'] = []
-        return redirect(url_for('ui_results'))
+        return redirect(url_for('results'))
 
     results = []
     first_error = None
@@ -2478,7 +2478,17 @@ def ui_predict():
 
     session['ui_last_results'] = results
     session['ui_last_error'] = first_error
-    return redirect(url_for('ui_results'))
+    return redirect(url_for('results'))
+
+
+@app.route('/predict', methods=['POST'])
+def predict_compat():
+    """Compatibility route.
+
+    Some UIs or older deployments submit the analysis form to /predict. Keep this
+    endpoint working by delegating to the current /ui/predict implementation.
+    """
+    return ui_predict()
 
 
 @app.route('/ui/results')
@@ -2486,6 +2496,12 @@ def ui_results():
     results = session.get('ui_last_results') or []
     error = session.get('ui_last_error')
     return render_template('ui_results.html', results=results, error=error)
+
+
+@app.route('/results')
+def results():
+    """Results page (preferred short URL)."""
+    return ui_results()
 
 
 @app.route('/logout')
