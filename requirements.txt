@@ -18,7 +18,9 @@ pillow>=11.0.0
 facenet-pytorch
 
 # Scientific Computing
-numpy>=2.0.0
+# NOTE: OpenCV wheels are not yet consistently compatible with NumPy 2.x in all environments.
+# Pin NumPy < 2.0 to avoid cv2 import/runtime issues on Render.
+numpy>=1.26.0,<2.0.0
 scipy>=1.11.0
 scikit-learn>=1.3.0
 pandas>=2.0.0
@@ -28,6 +30,10 @@ tqdm>=4.65.0
 matplotlib>=3.7.0
 google-generativeai
 requests>=2.31.0
+
+# Video decoding fallback (used when OpenCV video backend isn't available)
+imageio>=2.34.0
+imageio-ffmpeg>=0.5.1
 
 # Environment & Config
 python-dotenv==1.0.0
