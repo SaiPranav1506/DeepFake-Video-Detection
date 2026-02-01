@@ -24,6 +24,7 @@ checkpoints/**
 
 # Model weights (generally too large for git); exceptions can be added above.
 *.pt
+!checkpoints/pretrained_dfdc200_20260125/checkpoint_best_efficientnet_b0.pt
 *.pth
 *.onnx
 *.zip
