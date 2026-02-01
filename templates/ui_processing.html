@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DeepfakeGuard - Processing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/space.css') }}">
+  <style>
+    body.space-ui{margin:0; font-family:Segoe UI,Arial}
+    .wrap{max-width:980px;margin:24px auto;background:#fff;padding:18px;border-radius:16px;border:1px solid rgba(15,23,42,0.12)}
+    .title{font-weight:800;margin:0 0 10px 0}
+    .hint{color:#334155;font-size:13px;margin-top:6px}
+    .panel{margin-top:12px;background:#fff;padding:14px;border-radius:12px;border:1px solid rgba(15,23,42,0.12)}
+    .bar{height:10px;background:rgba(15,23,42,0.08);border-radius:999px;overflow:hidden}
+    .bar > div{height:100%;width:35%;background:linear-gradient(90deg,#667eea,#764ba2);animation:move 1.2s ease-in-out infinite}
+    @keyframes move{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; white-space:pre-wrap}
+    a{color:inherit}
+  </style>
+</head>
+<body class="space-ui">
+  <div id="space-scene" class="space-scene" aria-hidden="true"><canvas id="space-canvas"></canvas></div>
+
+  <div class="wrap">
+    <h2 class="title">Processing your video…</h2>
+    <div class="hint">This can take time on CPU servers (video decode + face detection + model inference). You will be redirected to results automatically.</div>
+
+    <div class="panel">
+      <div class="bar"><div></div></div>
+      <div class="hint" style="margin-top:10px">Job: <span class="mono">{{ job_id }}</span></div>
+      <div id="status" class="hint" style="margin-top:6px">Status: checking…</div>
+      <div class="hint" style="margin-top:10px"><a href="{{ url_for('results') }}">Go to results</a> (will show last completed run).</div>
+    </div>
+  </div>
+
+  <script>
+    const jobId = "{{ job_id|e }}";
+    const statusEl = document.getElementById('status');
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/ui-job/${jobId}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (!data || !data.found) {
+          statusEl.textContent = 'Status: missing/expired. Please upload again.';
+          return;
+        }
+        statusEl.textContent = `Status: ${data.status}${data.error ? ' — ' + data.error : ''}`;
+        if (data.done) {
+          window.location.href = data.results_url || '/results';
+          return;
+        }
+      } catch (e) {
+        statusEl.textContent = 'Status: waiting…';
+      }
+      window.setTimeout(poll, 1500);
+    }
+
+    poll();
+  </script>
+
+  <script defer src="{{ url_for('static', filename='js/space.js') }}"></script>
+</body>
+</html>

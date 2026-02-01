@@ -20,6 +20,7 @@ import base64
 import re
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 
@@ -120,6 +121,136 @@ AUTOLOAD_ATTEMPTED = False
 _UI_RESULTS_CACHE: dict[str, dict] = {}
 _UI_RESULTS_TTL_SECONDS = int(os.environ.get('UI_RESULTS_TTL_SECONDS', '1800'))  # 30 minutes
 _UI_RESULTS_MAX_ITEMS = int(os.environ.get('UI_RESULTS_MAX_ITEMS', '100'))
+
+# UI background jobs: avoid holding a request open while decoding videos / running inference.
+_UI_JOB_TTL_SECONDS = int(os.environ.get('UI_JOB_TTL_SECONDS', '3600'))  # 60 minutes
+_UI_JOBS: dict[str, dict] = {}
+_UI_BG_WORKERS = max(1, int(os.environ.get('UI_BG_WORKERS', '1')))
+_UI_EXECUTOR = ThreadPoolExecutor(max_workers=_UI_BG_WORKERS)
+
+
+def _ui_jobs_cleanup(now_ts: float | None = None) -> None:
+    try:
+        now = float(now_ts) if now_ts is not None else time.time()
+    except Exception:
+        now = time.time()
+    try:
+        expired = []
+        for k, v in list(_UI_JOBS.items()):
+            ts = v.get('ts')
+            try:
+                ts_f = float(ts)
+            except Exception:
+                ts_f = None
+            if ts_f is None or (now - ts_f) > float(_UI_JOB_TTL_SECONDS):
+                expired.append(k)
+        for k in expired:
+            _UI_JOBS.pop(k, None)
+    except Exception:
+        return
+
+
+def _ui_job_get(job_id: str | None) -> dict | None:
+    if not job_id:
+        return None
+    _ui_jobs_cleanup()
+    try:
+        job = _UI_JOBS.get(str(job_id))
+    except Exception:
+        job = None
+    return job if isinstance(job, dict) else None
+
+
+def _ui_process_saved_files(file_records: list[dict], enable_agent: bool, enable_justification: bool) -> tuple[list, str | None]:
+    results = []
+    first_error = None
+
+    for rec in file_records:
+        original_name = rec.get('original_filename')
+        safe_name = rec.get('filename')
+        filepath = rec.get('path')
+
+        if not filepath:
+            first_error = first_error or 'Missing uploaded file path'
+            continue
+
+        try:
+            result = predict_video(filepath)
+
+            agent_result = None
+            if enable_agent:
+                try:
+                    agent_result = _run_web_agent_pipeline(result, safe_name or original_name or 'video')
+                except Exception:
+                    agent_result = None
+
+            # Add simple English summary (non-technical)
+            try:
+                simple_msg = _simple_english_message(result, filename=(safe_name or original_name))
+            except Exception:
+                simple_msg = None
+
+            # Add 200-word justification (simple English) (opt-in; can be slow)
+            justification = None
+            if enable_justification:
+                try:
+                    justification = _simple_english_justification_200_words(result, filename=(safe_name or original_name))
+                except Exception:
+                    justification = None
+
+            out = dict(result) if isinstance(result, dict) else {'error': 'Unexpected result type'}
+            try:
+                out.setdefault('model_type', MODEL_TYPE)
+            except Exception:
+                pass
+            try:
+                out.setdefault('checkpoint_path', CHECKPOINT_PATH)
+            except Exception:
+                pass
+            if simple_msg and not out.get('error'):
+                out['simple_message'] = simple_msg
+            if justification:
+                out['justification'] = justification
+            if agent_result is not None:
+                out['agent'] = agent_result
+
+            results.append({
+                'original_filename': original_name or safe_name,
+                'filename': safe_name or original_name,
+                'result': out,
+            })
+        except Exception as e:
+            first_error = first_error or str(e)
+        finally:
+            try:
+                if filepath and os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception:
+                pass
+
+    return results, first_error
+
+
+def _ui_job_worker(job_id: str, file_records: list[dict], enable_agent: bool, enable_justification: bool) -> None:
+    try:
+        _UI_JOBS[job_id]['status'] = 'running'
+        _UI_JOBS[job_id]['ts'] = time.time()
+    except Exception:
+        pass
+
+    try:
+        results, first_error = _ui_process_saved_files(file_records, enable_agent=enable_agent, enable_justification=enable_justification)
+        key = _ui_cache_set(results, first_error)
+        try:
+            _UI_JOBS[job_id].update({'status': 'done', 'ui_key': key, 'error': first_error, 'ts': time.time()})
+        except Exception:
+            pass
+    except Exception as e:
+        key = _ui_cache_set([], str(e))
+        try:
+            _UI_JOBS[job_id].update({'status': 'error', 'ui_key': key, 'error': str(e), 'ts': time.time()})
+        except Exception:
+            pass
 
 
 def _ui_cache_cleanup(now_ts: float | None = None) -> None:
@@ -2640,11 +2771,104 @@ def results():
     - GET: show last cached results
     - POST: accept uploads and run analysis, then redirect back to GET /results
     """
+    # If a background job is in progress, show progress or finalize it.
+    job_id = (request.args.get('job') or '').strip() if request.method == 'GET' else ''
+    if request.method == 'GET' and job_id:
+        job = _ui_job_get(job_id)
+        if job is None:
+            session['ui_last_key'] = _ui_cache_set([], 'Job expired or not found. Please upload again.')
+            return redirect(url_for('results'))
+        status = str(job.get('status') or 'queued')
+        if status == 'done':
+            ui_key = job.get('ui_key')
+            if ui_key:
+                session['ui_last_key'] = str(ui_key)
+            return redirect(url_for('results'))
+        if status == 'error':
+            ui_key = job.get('ui_key')
+            if ui_key:
+                session['ui_last_key'] = str(ui_key)
+            else:
+                session['ui_last_key'] = _ui_cache_set([], str(job.get('error') or 'Processing failed'))
+            return redirect(url_for('results'))
+        # queued/running
+        return render_template('ui_processing.html', job_id=job_id)
+
     if request.method == 'POST':
-        # Process exactly like the old /ui/predict form handler, but without
-        # ever navigating users to /predict or /ui/predict in the address bar.
-        return ui_predict()
+        enable_agent = str(os.environ.get('UI_ENABLE_AGENT', '')).strip().lower() in ('1', 'true', 'yes', 'y')
+        enable_justification = str(os.environ.get('UI_ENABLE_JUSTIFICATION', '')).strip().lower() in ('1', 'true', 'yes', 'y')
+
+        if MODEL is None:
+            session['ui_last_key'] = _ui_cache_set([], 'Model not loaded')
+            return redirect(url_for('results'))
+
+        files = request.files.getlist('files')
+        if not files:
+            single = request.files.get('file')
+            files = [single] if single else []
+
+        if not files or all((f is None or not getattr(f, 'filename', '')) for f in files):
+            session['ui_last_key'] = _ui_cache_set([], 'No file selected')
+            return redirect(url_for('results'))
+
+        file_records: list[dict] = []
+        first_error = None
+        for f in files:
+            if f is None or not f.filename:
+                continue
+            if not allowed_file(f.filename):
+                first_error = first_error or f"File type not allowed: {f.filename}"
+                continue
+            filename = secure_filename(f.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{datetime.now().timestamp()}_{filename}")
+            try:
+                f.save(filepath)
+                file_records.append({'original_filename': f.filename, 'filename': filename, 'path': filepath})
+            except Exception as e:
+                first_error = first_error or str(e)
+                try:
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                except Exception:
+                    pass
+
+        if not file_records:
+            session['ui_last_key'] = _ui_cache_set([], first_error or 'No valid files uploaded')
+            return redirect(url_for('results'))
+
+        # Kick off a background job and immediately show the processing page.
+        _ui_jobs_cleanup()
+        job_id = uuid.uuid4().hex
+        _UI_JOBS[job_id] = {'ts': time.time(), 'status': 'queued', 'ui_key': None, 'error': first_error}
+        try:
+            _UI_EXECUTOR.submit(_ui_job_worker, job_id, file_records, enable_agent, enable_justification)
+        except Exception as e:
+            session['ui_last_key'] = _ui_cache_set([], f"Failed to start background job: {e}")
+            return redirect(url_for('results'))
+
+        # Store job id so /results can recover if needed.
+        try:
+            session['ui_last_job'] = job_id
+        except Exception:
+            pass
+        return redirect(url_for('results', job=job_id))
+
     return ui_results()
+
+
+@app.route('/api/ui-job/<job_id>', methods=['GET'])
+def api_ui_job(job_id: str):
+    job = _ui_job_get(job_id)
+    if job is None:
+        return jsonify({'found': False, 'status': 'missing'}), 404
+    status = str(job.get('status') or 'queued')
+    return jsonify({
+        'found': True,
+        'status': status,
+        'error': job.get('error'),
+        'done': status in ('done', 'error'),
+        'results_url': url_for('results', _external=False),
+    })
 
 
 @app.route('/logout')
