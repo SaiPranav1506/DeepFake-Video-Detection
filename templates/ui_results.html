@@ -34,6 +34,15 @@
     <h2 class="title">Results</h2>
     <div style="margin-top:10px" class="hint">Detection output (confidence, faces, probabilities) + a simple-English justification.</div>
 
+    <div style="margin-top:14px; padding:12px; border:1px solid rgba(15,23,42,0.12); border-radius:12px; background:#fff">
+      <form action="{{ url_for('results') }}" method="post" enctype="multipart/form-data" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+        <input type="file" name="files" accept="video/*" multiple required />
+        <button class="btn" type="submit">Analyze</button>
+        <a class="btn" href="{{ url_for('results') }}">Refresh Results</a>
+      </form>
+      <div class="hint">Upload videos here; you will stay on <b>/results</b>.</div>
+    </div>
+
     <h3 style="margin:14px 0 8px 0">Detection Output</h3>
     <div class="panel">
       <pre id="detection-out" class="result-body" aria-live="polite">{% if error %}Error: {{ error }}

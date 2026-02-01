@@ -2492,8 +2492,9 @@ def api_signup():
 
 @app.route('/ui')
 def simple_ui():
-    # A lightweight UI for quickly loading a checkpoint and testing a video
-    return render_template('ui.html')
+    # Keep a single canonical UI entry point.
+    # /ui is retained for compatibility but immediately redirects to /results.
+    return redirect(url_for('results'))
 
 
 @app.route('/health')
@@ -2510,6 +2511,8 @@ def about():
 @app.route('/ui/predict', methods=['POST'])
 def ui_predict():
     """Form-based UI flow: upload on one page (/ui) and render results on another (/results)."""
+    enable_agent = str(os.environ.get('UI_ENABLE_AGENT', '')).strip().lower() in ('1', 'true', 'yes', 'y')
+    enable_justification = str(os.environ.get('UI_ENABLE_JUSTIFICATION', '')).strip().lower() in ('1', 'true', 'yes', 'y')
     if MODEL is None:
         # Keep session cookie small.
         session.pop('ui_last_results', None)
@@ -2546,7 +2549,13 @@ def ui_predict():
         try:
             file.save(filepath)
             result = predict_video(filepath)
-            agent_result = _run_web_agent_pipeline(result, filename)
+
+            agent_result = None
+            if enable_agent:
+                try:
+                    agent_result = _run_web_agent_pipeline(result, filename)
+                except Exception:
+                    agent_result = None
 
             # Add simple English summary (non-technical)
             try:
@@ -2554,11 +2563,13 @@ def ui_predict():
             except Exception:
                 simple_msg = None
 
-            # Add 200-word justification (simple English)
-            try:
-                justification = _simple_english_justification_200_words(result, filename=filename)
-            except Exception:
-                justification = None
+            # Add 200-word justification (simple English) (opt-in; can be slow on small hosts)
+            justification = None
+            if enable_justification:
+                try:
+                    justification = _simple_english_justification_200_words(result, filename=filename)
+                except Exception:
+                    justification = None
 
             out = dict(result) if isinstance(result, dict) else {'error': 'Unexpected result type'}
             # Add model metadata for debugging consistency issues
@@ -2621,8 +2632,18 @@ def ui_results():
 
 
 @app.route('/results')
+@app.route('/results', methods=['POST'])
 def results():
-    """Results page (preferred short URL)."""
+    """Results page (preferred short URL).
+
+    Supports:
+    - GET: show last cached results
+    - POST: accept uploads and run analysis, then redirect back to GET /results
+    """
+    if request.method == 'POST':
+        # Process exactly like the old /ui/predict form handler, but without
+        # ever navigating users to /predict or /ui/predict in the address bar.
+        return ui_predict()
     return ui_results()
 
 
@@ -2953,6 +2974,8 @@ def api_load_model():
 def api_predict():
     if MODEL is None:
         return jsonify({'error': 'Model not loaded'}), 400
+
+    enable_agent = str(os.environ.get('API_ENABLE_AGENT', '')).strip().lower() in ('1', 'true', 'yes', 'y')
     
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
@@ -2970,7 +2993,13 @@ def api_predict():
         file.save(filepath)
         
         result = predict_video(filepath)
-        agent_result = _run_web_agent_pipeline(result, filename)
+
+        agent_result = None
+        if enable_agent:
+            try:
+                agent_result = _run_web_agent_pipeline(result, filename)
+            except Exception:
+                agent_result = None
 
         # Add simple English summary (non-technical)
         try:
