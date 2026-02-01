@@ -5,6 +5,8 @@ import json
 import io
 import base64
 import re
+import time
+import uuid
 from pathlib import Path
 from datetime import datetime
 
@@ -77,6 +79,82 @@ MODEL_META = {}
 LAST_LOAD_STATS = {}
 ENHANCED_AGENT = EnhancedDecisionAgent() if EnhancedDecisionAgent is not None else None
 AUTOLOAD_ATTEMPTED = False
+
+# UI results are potentially large (justifications, agent output). Flask's default
+# cookie-based session cannot reliably hold these without causing 4xx/5xx errors.
+# Store results server-side and keep only a small key in the session cookie.
+_UI_RESULTS_CACHE: dict[str, dict] = {}
+_UI_RESULTS_TTL_SECONDS = int(os.environ.get('UI_RESULTS_TTL_SECONDS', '1800'))  # 30 minutes
+_UI_RESULTS_MAX_ITEMS = int(os.environ.get('UI_RESULTS_MAX_ITEMS', '100'))
+
+
+def _ui_cache_cleanup(now_ts: float | None = None) -> None:
+    try:
+        now = float(now_ts) if now_ts is not None else time.time()
+    except Exception:
+        now = time.time()
+
+    # Remove expired
+    try:
+        expired = []
+        for k, v in list(_UI_RESULTS_CACHE.items()):
+            ts = v.get('ts')
+            try:
+                ts_f = float(ts)
+            except Exception:
+                ts_f = None
+            if ts_f is None or (now - ts_f) > float(_UI_RESULTS_TTL_SECONDS):
+                expired.append(k)
+        for k in expired:
+            _UI_RESULTS_CACHE.pop(k, None)
+    except Exception:
+        return
+
+    # Cap size
+    try:
+        if len(_UI_RESULTS_CACHE) <= int(_UI_RESULTS_MAX_ITEMS):
+            return
+        items = sorted(
+            [(k, float(v.get('ts') or 0.0)) for k, v in _UI_RESULTS_CACHE.items()],
+            key=lambda x: x[1],
+        )
+        while len(items) > int(_UI_RESULTS_MAX_ITEMS):
+            k, _ = items.pop(0)
+            _UI_RESULTS_CACHE.pop(k, None)
+    except Exception:
+        return
+
+
+def _ui_cache_set(results: list, error: str | None) -> str:
+    _ui_cache_cleanup()
+    key = uuid.uuid4().hex
+    _UI_RESULTS_CACHE[key] = {
+        'ts': time.time(),
+        'results': results,
+        'error': error,
+    }
+    return key
+
+
+def _ui_cache_get(key: str | None) -> tuple[list, str | None] | None:
+    if not key:
+        return None
+    _ui_cache_cleanup()
+    try:
+        payload = _UI_RESULTS_CACHE.get(str(key))
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        return None
+    results = payload.get('results') or []
+    error = payload.get('error')
+    if not isinstance(results, list):
+        results = []
+    try:
+        error = str(error) if error is not None else None
+    except Exception:
+        error = None
+    return results, error
 
 _MTCNN = None
 
@@ -2399,8 +2477,10 @@ def about():
 def ui_predict():
     """Form-based UI flow: upload on one page (/ui) and render results on another (/results)."""
     if MODEL is None:
-        session['ui_last_error'] = 'Model not loaded'
-        session['ui_last_results'] = []
+        # Keep session cookie small.
+        session.pop('ui_last_results', None)
+        session.pop('ui_last_error', None)
+        session['ui_last_key'] = _ui_cache_set([], 'Model not loaded')
         return redirect(url_for('results'))
 
     # Accept multiple files from the form.
@@ -2411,8 +2491,9 @@ def ui_predict():
         files = [single] if single else []
 
     if not files or all((f is None or not getattr(f, 'filename', '')) for f in files):
-        session['ui_last_error'] = 'No file selected'
-        session['ui_last_results'] = []
+        session.pop('ui_last_results', None)
+        session.pop('ui_last_error', None)
+        session['ui_last_key'] = _ui_cache_set([], 'No file selected')
         return redirect(url_for('results'))
 
     results = []
@@ -2476,8 +2557,10 @@ def ui_predict():
             except Exception:
                 pass
 
-    session['ui_last_results'] = results
-    session['ui_last_error'] = first_error
+    # Store results server-side to avoid oversized cookie sessions (can cause 502 on proxies).
+    session.pop('ui_last_results', None)
+    session.pop('ui_last_error', None)
+    session['ui_last_key'] = _ui_cache_set(results, first_error)
     return redirect(url_for('results'))
 
 
@@ -2493,8 +2576,13 @@ def predict_compat():
 
 @app.route('/ui/results')
 def ui_results():
-    results = session.get('ui_last_results') or []
-    error = session.get('ui_last_error')
+    cached = _ui_cache_get(session.get('ui_last_key'))
+    if cached is not None:
+        results, error = cached
+    else:
+        # Backward compatibility: if older deployments stored results directly in the session.
+        results = session.get('ui_last_results') or []
+        error = session.get('ui_last_error')
     return render_template('ui_results.html', results=results, error=error)
 
 
